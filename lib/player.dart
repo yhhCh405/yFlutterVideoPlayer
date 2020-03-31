@@ -1,3 +1,4 @@
+import 'package:demo_video_player/Modal.dart';
 import 'package:demo_video_player/fullscreenview.dart';
 import 'package:demo_video_player/main.dart';
 import 'package:flutter/material.dart';
@@ -6,9 +7,11 @@ import 'package:video_player/video_player.dart';
 
 class Player extends StatefulWidget {
   static const routeName = "/Player";
-  BuildContext c;
-  bool isFullscreen;
-  Player({this.isFullscreen: false, this.c});
+
+  CurrentPlayingInfo playingInfo = CurrentPlayingInfo();
+
+  bool isFullscreen = false;
+  Player({this.playingInfo});
   @override
   _PlayerState createState() => _PlayerState();
 }
@@ -19,10 +22,7 @@ class _PlayerState extends State<Player> {
     return Container(
         child: Column(
       children: <Widget>[
-        PlayerVillain(
-          isFullscreen: widget.isFullscreen,
-          c: widget.c,
-        ),
+        PlayerVillain(playingInfo: widget.playingInfo),
       ],
     ));
   }
@@ -30,9 +30,9 @@ class _PlayerState extends State<Player> {
 
 class PlayerVillain extends StatefulWidget {
   String url;
-  BuildContext c;
   bool isFullscreen;
-  PlayerVillain({this.c, this.isFullscreen});
+  CurrentPlayingInfo playingInfo;
+  PlayerVillain({this.playingInfo});
 
   @override
   _PlayerVillainState createState() => _PlayerVillainState();
@@ -43,7 +43,8 @@ class _PlayerVillainState extends State<PlayerVillain> {
 
   List<String> streamUrls = [
     'https://flutter.github.io/assets-for-api-docs/assets/videos/bee.mp4',
-    'https://flutter.github.io/assets-for-api-docs/assets/videos/butterfly.mp4'
+    'https://flutter.github.io/assets-for-api-docs/assets/videos/butterfly.mp4',
+    'https://commondatastorage.googleapis.com/gtv-videos-bucket/sample/BigBuckBunny.mp4'
   ];
 
   List<VideoPlayerController> _vCtrls = [];
@@ -96,6 +97,8 @@ class _PlayerVillainState extends State<PlayerVillain> {
   void initState() {
     super.initState();
 
+
+
     streamUrls.forEach((v) {
       _controller = VideoPlayerController.network(v);
       _vCtrls.add(_controller);
@@ -108,6 +111,20 @@ class _PlayerVillainState extends State<PlayerVillain> {
     _controller.setLooping(true);
     _controller.initialize();
     setState(() {});
+
+        if (widget.playingInfo != null) {
+      widget.isFullscreen = widget.playingInfo.isFullScreen ?? false;
+      index = widget.playingInfo.indexOfUrl ?? 0;
+      if(widget.playingInfo.position != null) _controller.seekTo(widget.playingInfo.position);
+      setState(() {
+        
+      });
+    } else {
+      if (widget.isFullscreen == null) widget.isFullscreen = false;
+      setState(() {
+        
+      });
+    }
   }
 
   @override
@@ -116,19 +133,33 @@ class _PlayerVillainState extends State<PlayerVillain> {
     super.dispose();
   }
 
-  showFullScreen() {
+  showFullScreen() async {
+
+      
+
     if (widget.isFullscreen) {
       print(widget.isFullscreen);
-
-      Navigator.pop(widget.c);
-
+      
+      _controller.pause();
+      widget.playingInfo = CurrentPlayingInfo(indexOfUrl: index,position: await _controller.position,isFullScreen: false);
+      // widget.playingInfo.position = await _controller.position;
+      // widget.playingInfo.indexOfUrl = index;
+      // widget.playingInfo.isFullScreen = false;
       widget.isFullscreen = false;
       setState(() {});
+      Navigator.pop(context);
     } else {
       print(widget.isFullscreen);
-
+      _controller.pause();
+      widget.playingInfo = CurrentPlayingInfo(indexOfUrl: index,position: await _controller.position,isFullScreen: true);
+      // widget.playingInfo.position = await _controller.position;
+      // widget.playingInfo.indexOfUrl = index;
+      // widget.playingInfo.isFullScreen = true;
+      setState(() {});
       Navigator.push(
-          context, MaterialPageRoute(builder: (context) => FullscreenView()));
+          context,
+          MaterialPageRoute(
+              builder: (context) => FullscreenView(widget.playingInfo)));
     }
   }
 
@@ -157,7 +188,7 @@ class _PlayerVillainState extends State<PlayerVillain> {
                           onFullscreenPressed: () {
                             showFullScreen();
                           }),
-                      VideoProgressIndicator(_controller, allowScrubbing: true),
+                      // VideoProgressIndicator(_controller, allowScrubbing: true),
                     ],
                   ),
                 )
@@ -181,7 +212,7 @@ class _PlayerVillainState extends State<PlayerVillain> {
                           onFullscreenPressed: () {
                             showFullScreen();
                           }),
-                      VideoProgressIndicator(_controller, allowScrubbing: true),
+                      // VideoProgressIndicator(_controller, allowScrubbing: true),
                     ],
                   ),
                 ),
@@ -237,88 +268,143 @@ class __PlayPauseOverlayState extends State<_PlayPauseOverlay> {
         onTapVideo();
         print('tap');
       },
-      child: Container(
-        child: Stack(
-          children: <Widget>[
-            widget.shouldDisplayButtons
-                ? Center(
-                    child: Container(
-                      alignment: Alignment.center,
-                      height: 80,
-                      child: Row(
-                        children: <Widget>[
-                          Expanded(
-                            child: Container(
-                              color: Colors.black26,
-                              child: Center(
-                                child: IconButton(
-                                  icon: Icon(Icons.skip_previous),
-                                  iconSize: 80,
-                                  color: Colors.white,
-                                  onPressed: widget.onPrevPressed,
-                                ),
-                              ),
-                            ),
-                          ),
-                          Expanded(
-                            child: Container(
-                              color: Colors.black26,
-                              child: Center(
-                                child: IconButton(
-                                  icon: Icon(
-                                    widget.controller.value.isPlaying
-                                        ? Icons.pause
-                                        : Icons.play_arrow,
+      child: Stack(
+        children: <Widget>[
+          Row(
+            children: <Widget>[
+              Expanded(
+                child: Container(
+                  color: Colors.transparent,
+                ),
+              )
+            ],
+          ),
+          widget.shouldDisplayButtons
+              ? Container(
+                  alignment: Alignment.bottomCenter,
+                  child: Container(
+                    height: 80,
+                    child: Column(
+                      children: <Widget>[
+                        VideoProgressIndicator(
+                          widget.controller,
+                          allowScrubbing: true,
+                        ),
+                        Container(
+                          height: 65,
+                          child: Row(
+                            children: <Widget>[
+                              Expanded(
+                                child: Container(
+                                  color: Colors.black26,
+                                  child: Center(
+                                    child: IconButton(
+                                      icon: Icon(Icons.skip_previous),
+                                      iconSize: 40,
+                                      color: Colors.white,
+                                      onPressed: widget.onPrevPressed,
+                                    ),
                                   ),
-                                  iconSize: 80,
-                                  color: Colors.white,
-                                  onPressed: () {
-                                    widget.controller.value.isPlaying
-                                        ? widget.controller.pause()
-                                        : widget.controller.play();
-                                  },
                                 ),
                               ),
-                            ),
-                          ),
-                          Expanded(
-                            child: Container(
-                              color: Colors.black26,
-                              child: Center(
-                                child: IconButton(
-                                  icon: Icon(Icons.skip_next),
-                                  iconSize: 80,
-                                  color: Colors.white,
-                                  onPressed: widget.onNextPressed,
+                              Expanded(
+                                child: Container(
+                                  color: Colors.black26,
+                                  child: Center(
+                                    child: IconButton(
+                                      icon: Icon(Icons.fast_rewind),
+                                      iconSize: 40,
+                                      color: Colors.white,
+                                      onPressed: () {
+                                        widget.controller.value.isPlaying
+                                            ? widget.controller.pause()
+                                            : widget.controller.play();
+                                      },
+                                    ),
+                                  ),
                                 ),
                               ),
-                            ),
+                              Expanded(
+                                child: Container(
+                                  color: Colors.black26,
+                                  child: Center(
+                                    child: IconButton(
+                                      icon: Icon(
+                                        widget.controller.value.isPlaying
+                                            ? Icons.pause
+                                            : Icons.play_arrow,
+                                      ),
+                                      iconSize: 40,
+                                      color: Colors.white,
+                                      onPressed: () {
+                                        widget.controller.value.isPlaying
+                                            ? widget.controller.pause()
+                                            : widget.controller.play();
+                                      },
+                                    ),
+                                  ),
+                                ),
+                              ),
+                              Expanded(
+                                child: Container(
+                                  color: Colors.black26,
+                                  child: Center(
+                                    child: IconButton(
+                                      icon: Icon(Icons.fast_forward),
+                                      iconSize: 40,
+                                      color: Colors.white,
+                                      onPressed: () {
+                                        if (widget.controller.value.position <
+                                            widget.controller.value.duration) {
+                                          widget.controller.seekTo(
+                                              widget.controller.value.position +
+                                                  Duration(seconds: 2));
+                                        }
+                                      },
+                                    ),
+                                  ),
+                                ),
+                              ),
+                              Expanded(
+                                child: Container(
+                                  color: Colors.black26,
+                                  child: Center(
+                                    child: IconButton(
+                                      icon: Icon(Icons.skip_next),
+                                      iconSize: 40,
+                                      color: Colors.white,
+                                      onPressed: widget.onNextPressed,
+                                    ),
+                                  ),
+                                ),
+                              ),
+                            ],
                           ),
-                        ],
+                        ),
+                      ],
+                    ),
+                  ),
+                )
+              : Container(),
+          widget.shouldDisplayButtons
+              ? Row(
+                  mainAxisAlignment: MainAxisAlignment.end,
+                  children: <Widget>[
+                    Container(
+                      color: Colors.black26,
+                      child: IconButton(
+                        icon: Icon(widget.isFullscreen
+                            ? Icons.fullscreen_exit
+                            : Icons.fullscreen),
+                        iconSize: 30,
+                        color: Colors.white,
+                        onPressed: widget.onFullscreenPressed,
                       ),
                     ),
-                  )
-                : Container(),
-            widget.shouldDisplayButtons
-                ? Row(
-                    mainAxisAlignment: MainAxisAlignment.end,
-                    children: <Widget>[
-                      Container(
-                        color: Colors.black26,
-                        child: IconButton(
-                          icon: Icon(widget.isFullscreen
-                              ? Icons.fullscreen_exit
-                              : Icons.fullscreen),
-                          iconSize: 30,
-                          color: Colors.white,
-                          onPressed: widget.onFullscreenPressed,
-                        ),
-                      ),
-                    ],
-                  )
-                : Container()
-          ],
-        ),
+                  ],
+                )
+              : Container(),
+        ],
       ),
     );
   }

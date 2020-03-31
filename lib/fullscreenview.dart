@@ -1,8 +1,11 @@
+import 'package:demo_video_player/Modal.dart';
 import 'package:demo_video_player/player.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 
 class FullscreenView extends StatefulWidget {
+  CurrentPlayingInfo playingInfo;
+  FullscreenView(this.playingInfo);
   @override
   _FullscreenViewState createState() => _FullscreenViewState();
 }
@@ -41,8 +44,7 @@ class _FullscreenViewState extends State<FullscreenView> {
       body: Container(
         color: Colors.black,
         child: Player(
-          isFullscreen: true,
-          c:context
+          playingInfo: widget.playingInfo,
         ),
       ),
     );
