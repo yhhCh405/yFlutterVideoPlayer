@@ -42,6 +42,7 @@ class _FullscreenViewState extends State<FullscreenView> {
         color: Colors.black,
         child: Player(
           isFullscreen: true,
+          c:context
         ),
       ),
     );
