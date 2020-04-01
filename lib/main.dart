@@ -1,3 +1,4 @@
+import 'package:demo_video_player/Modal.dart';
 import 'package:demo_video_player/player.dart';
 import 'package:flutter/cupertino.dart';
 import 'package:flutter/material.dart';
@@ -17,6 +18,9 @@ void main() {
 
 class App extends StatelessWidget {
   static const routeName = '/Main';
+  CurrentPlayingInfo playingInfo;
+
+  App({this.playingInfo});
   @override
   Widget build(BuildContext context) {
     return DefaultTabController(
@@ -27,7 +31,7 @@ class App extends StatelessWidget {
           title: const Text('Testing video player'),
           actions: <Widget>[],
         ),
-        body: Player(),
+        body: this.playingInfo == null ? Player() : Player(playingInfo: this.playingInfo,),
       ),
     );
   }

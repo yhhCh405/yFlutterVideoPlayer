@@ -30,7 +30,7 @@ class _PlayerState extends State<Player> {
 
 class PlayerVillain extends StatefulWidget {
   String url;
-  bool isFullscreen;
+  bool isFullscreen = false;
   CurrentPlayingInfo playingInfo;
   PlayerVillain({this.playingInfo});
 
@@ -41,10 +41,22 @@ class PlayerVillain extends StatefulWidget {
 class _PlayerVillainState extends State<PlayerVillain> {
   VideoPlayerController _controller;
 
-  List<String> streamUrls = [
-    'https://flutter.github.io/assets-for-api-docs/assets/videos/bee.mp4',
-    'https://flutter.github.io/assets-for-api-docs/assets/videos/butterfly.mp4',
-    'https://commondatastorage.googleapis.com/gtv-videos-bucket/sample/BigBuckBunny.mp4'
+  List<Map<String, dynamic>> streamUrls = [
+    {
+      'title': 'Bees',
+      'url':
+          'https://flutter.github.io/assets-for-api-docs/assets/videos/bee.mp4',
+    },
+    {
+      'title': 'Butterfly',
+      'url':
+          'https://flutter.github.io/assets-for-api-docs/assets/videos/butterfly.mp4',
+    },
+    {
+      'title': 'Big Buck Bunny',
+      'url':
+          'https://commondatastorage.googleapis.com/gtv-videos-bucket/sample/BigBuckBunny.mp4',
+    },
   ];
 
   List<VideoPlayerController> _vCtrls = [];
@@ -97,10 +109,16 @@ class _PlayerVillainState extends State<PlayerVillain> {
   void initState() {
     super.initState();
 
+    if (widget.playingInfo != null) {
+      widget.isFullscreen = widget.playingInfo.isFullScreen ?? false;
+      index = widget.playingInfo.indexOfUrl ?? 0;
+      setState(() {});
+    }
 
+    if (widget.isFullscreen == null) widget.isFullscreen = false;
 
     streamUrls.forEach((v) {
-      _controller = VideoPlayerController.network(v);
+      _controller = VideoPlayerController.network(v['url']);
       _vCtrls.add(_controller);
     });
 
@@ -109,22 +127,18 @@ class _PlayerVillainState extends State<PlayerVillain> {
       setState(() {});
     });
     _controller.setLooping(true);
-    _controller.initialize();
+    _controller.initialize().then((v) {
+      if (widget.playingInfo != null) {
+        if (widget.playingInfo.position != null) {
+          _controller.play().then((v) {
+            _controller.seekTo(
+                _controller.value.position + widget.playingInfo.position);
+          });
+        }
+        setState(() {});
+      }
+    });
     setState(() {});
-
-        if (widget.playingInfo != null) {
-      widget.isFullscreen = widget.playingInfo.isFullScreen ?? false;
-      index = widget.playingInfo.indexOfUrl ?? 0;
-      if(widget.playingInfo.position != null) _controller.seekTo(widget.playingInfo.position);
-      setState(() {
-        
-      });
-    } else {
-      if (widget.isFullscreen == null) widget.isFullscreen = false;
-      setState(() {
-        
-      });
-    }
   }
 
   @override
@@ -134,32 +148,35 @@ class _PlayerVillainState extends State<PlayerVillain> {
   }
 
   showFullScreen() async {
-
-      
-
     if (widget.isFullscreen) {
       print(widget.isFullscreen);
-      
-      _controller.pause();
-      widget.playingInfo = CurrentPlayingInfo(indexOfUrl: index,position: await _controller.position,isFullScreen: false);
-      // widget.playingInfo.position = await _controller.position;
-      // widget.playingInfo.indexOfUrl = index;
-      // widget.playingInfo.isFullScreen = false;
+
+      await _controller.pause();
+      widget.playingInfo = CurrentPlayingInfo(
+          indexOfUrl: index,
+          position: await _controller.position,
+          isFullScreen: false);
+
+      Navigator.pushReplacement(
+          context,
+          MaterialPageRoute(
+              builder: (context) => App(playingInfo: widget.playingInfo)));
       widget.isFullscreen = false;
       setState(() {});
-      Navigator.pop(context);
     } else {
       print(widget.isFullscreen);
-      _controller.pause();
-      widget.playingInfo = CurrentPlayingInfo(indexOfUrl: index,position: await _controller.position,isFullScreen: true);
-      // widget.playingInfo.position = await _controller.position;
-      // widget.playingInfo.indexOfUrl = index;
-      // widget.playingInfo.isFullScreen = true;
-      setState(() {});
-      Navigator.push(
+      await _controller.pause();
+      widget.playingInfo = CurrentPlayingInfo(
+          indexOfUrl: index,
+          position: await _controller.position,
+          isFullScreen: true);
+
+      Navigator.pushReplacement(
           context,
           MaterialPageRoute(
               builder: (context) => FullscreenView(widget.playingInfo)));
+      widget.isFullscreen = true;
+      setState(() {});
     }
   }
 
@@ -178,6 +195,8 @@ class _PlayerVillainState extends State<PlayerVillain> {
                       ClosedCaption(text: _controller.value.caption.text),
                       _PlayPauseOverlay(
                           controller: _controller,
+                          streamUrls: streamUrls,
+                          index: index,
                           isFullscreen: widget.isFullscreen,
                           onNextPressed: () {
                             playnext();
@@ -202,6 +221,8 @@ class _PlayerVillainState extends State<PlayerVillain> {
                       ClosedCaption(text: _controller.value.caption.text),
                       _PlayPauseOverlay(
                           controller: _controller,
+                          streamUrls: streamUrls,
+                          index: index,
                           isFullscreen: widget.isFullscreen,
                           onNextPressed: () {
                             playnext();
@@ -227,16 +248,20 @@ class _PlayPauseOverlay extends StatefulWidget {
   VoidCallback onNextPressed;
   VoidCallback onFullscreenPressed;
   bool isFullscreen;
+  List<Map<String, dynamic>> streamUrls;
+  int index;
   bool shouldDisplayButtons = true;
   VideoPlayerController controller;
-  _PlayPauseOverlay(
-      {Key key,
-      this.controller,
-      this.onPrevPressed,
-      this.onNextPressed,
-      this.isFullscreen,
-      this.onFullscreenPressed})
-      : super(key: key);
+  _PlayPauseOverlay({
+    Key key,
+    this.controller,
+    this.onPrevPressed,
+    this.onNextPressed,
+    this.streamUrls,
+    this.index,
+    this.isFullscreen,
+    this.onFullscreenPressed,
+  }) : super(key: key);
   @override
   __PlayPauseOverlayState createState() => __PlayPauseOverlayState();
 }
@@ -245,24 +270,48 @@ class __PlayPauseOverlayState extends State<_PlayPauseOverlay> {
   onTapVideo() {
     print('tap');
 
+    // if(widget.controller.value.isPlaying){
+    //   widget.shouldDisplayButtons = true;
+    //   setState(() {
+
+    //   });
+    // }
+
     if (widget.shouldDisplayButtons) {
       widget.shouldDisplayButtons = false;
-    } else if (widget.shouldDisplayButtons == false) {
-      widget.shouldDisplayButtons = true;
-      setState(() {
-        print(widget.shouldDisplayButtons);
-      });
+      setState(() {});
+    } else {
       // Future.delayed(Duration(seconds: 3)).then((v) {
       //   setState(() {
       //     print('hide');
       //     if (widget.shouldDisplayButtons) widget.shouldDisplayButtons = false;
       //   });
       // });
+      widget.shouldDisplayButtons = true;
+      setState(() {});
     }
   }
 
   @override
+  void initState() {
+    // TODO: implement initState
+    super.initState();
+  }
+
+  @override
   Widget build(BuildContext context) {
+    // if (widget.shouldDisplayButtons == null) {
+    //   if (widget.controller.value.isPlaying) {
+    //     widget.shouldDisplayButtons = true;
+    //     Future.delayed(Duration(seconds: 3)).then((v) {
+    //        widget.shouldDisplayButtons = false;
+    //     });
+    //   } else {
+    //     widget.shouldDisplayButtons = true;
+
+    //   }
+    // }
+
     return GestureDetector(
       onTap: () {
         onTapVideo();
@@ -283,15 +332,27 @@ class __PlayPauseOverlayState extends State<_PlayPauseOverlay> {
               ? Container(
                   alignment: Alignment.bottomCenter,
                   child: Container(
+                    decoration: BoxDecoration(
+                      gradient: LinearGradient(
+                          colors: [Colors.transparent, Colors.black],
+                          begin: Alignment.topCenter,
+                          end: Alignment.bottomCenter,
+                          stops: [0.4, 1.0],
+                          tileMode: TileMode.clamp),
+                    ),
                     height: 80,
                     child: Column(
                       children: <Widget>[
                         VideoProgressIndicator(
                           widget.controller,
                           allowScrubbing: true,
+                          colors: VideoProgressColors(
+                              backgroundColor: Colors.black45,
+                              playedColor: Colors.white,
+                              bufferedColor: Colors.white30),
                         ),
                         Container(
-                          height: 65,
+                          height: 68,
                           child: Row(
                             children: <Widget>[
                               Expanded(
@@ -316,9 +377,12 @@ class __PlayPauseOverlayState extends State<_PlayPauseOverlay> {
                                       iconSize: 40,
                                       color: Colors.white,
                                       onPressed: () {
-                                        widget.controller.value.isPlaying
-                                            ? widget.controller.pause()
-                                            : widget.controller.play();
+                                        if (widget.controller.value.position >
+                                            Duration.zero) {
+                                          widget.controller.seekTo(
+                                              widget.controller.value.position -
+                                                  Duration(seconds: 4));
+                                        }
                                       },
                                     ),
                                   ),
@@ -358,7 +422,7 @@ class __PlayPauseOverlayState extends State<_PlayPauseOverlay> {
                                             widget.controller.value.duration) {
                                           widget.controller.seekTo(
                                               widget.controller.value.position +
-                                                  Duration(seconds: 2));
+                                                  Duration(seconds: 4));
                                         }
                                       },
                                     ),
@@ -387,21 +451,44 @@ class __PlayPauseOverlayState extends State<_PlayPauseOverlay> {
                 )
               : Container(),
           widget.shouldDisplayButtons
-              ? Row(
-                  mainAxisAlignment: MainAxisAlignment.end,
-                  children: <Widget>[
-                    Container(
-                      color: Colors.black26,
-                      child: IconButton(
-                        icon: Icon(widget.isFullscreen
-                            ? Icons.fullscreen_exit
-                            : Icons.fullscreen),
-                        iconSize: 30,
-                        color: Colors.white,
-                        onPressed: widget.onFullscreenPressed,
+              ? Container(
+                  decoration: BoxDecoration(
+                    gradient: LinearGradient(
+                        colors: [Colors.black, Colors.transparent],
+                        begin: Alignment.topCenter,
+                        end: Alignment.bottomCenter,
+                        stops: [0.0, 0.8],
+                        tileMode: TileMode.clamp),
+                  ),
+                  child: Row(
+                    //mainAxisAlignment: MainAxisAlignment.end,
+                    children: <Widget>[
+                      Expanded(
+                        child: Container(
+                          padding: EdgeInsets.only(left: 20),
+                          alignment: Alignment.centerLeft,
+                          color: Colors.black26,
+                          height: 45,
+                          child: Text(
+                            widget.streamUrls[widget.index]['title'],
+                            style: TextStyle(color: Colors.white, fontSize: 18),
+                          ),
+                        ),
                       ),
-                    ),
-                  ],
+                      Container(
+                        color: Colors.black26,
+                        height: 45,
+                        child: IconButton(
+                          icon: Icon(widget.isFullscreen
+                              ? Icons.fullscreen_exit
+                              : Icons.fullscreen),
+                          iconSize: 30,
+                          color: Colors.white,
+                          onPressed: widget.onFullscreenPressed,
+                        ),
+                      ),
+                    ],
+                  ),
                 )
               : Container(),
         ],
